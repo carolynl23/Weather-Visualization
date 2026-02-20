@@ -2,7 +2,7 @@
 const margin = {
     top: 40,
     right: 40,
-    bottom: 40,
+    bottom: 100,
     left: 60
 }
 
@@ -48,7 +48,7 @@ d3.csv('data/weather.csv').then(data => {
 
     // Remove data points with missing values.
     data = data.filter(d => d.latitude !== "");
-    data = data.filter(d => d.longtitude !== "");
+    data = data.filter(d => d.longitude !== "");
     data = data.filter(d => d.date !== "");
     data = data.filter(d => d.TAVG !== "");
 
@@ -135,9 +135,9 @@ function updateVis() {
             .append('circle')
             .attr('cx', d => xScale(d.longitude))
             .attr('cy', d => yScale(d.latitude))
-            .attr('r', 1.5)
-            .style('fill', 'steelblue')
-            .attr('opacity', 0.8)
+            .attr('r', 3)
+            .style('fill', d => colorScale(d.temp))
+            .attr('opacity', 0.6)
             .attr('class', 'point')
         },
         update => {
@@ -145,7 +145,7 @@ function updateVis() {
             .transition()
             .attr('cx', d => xScale(d.longitude))
             .attr('cy', d => yScale(d.latitude))
-            .style('fill', 'steelblue')
+            .style('fill', d => colorScale(d.temp))
         }
     )
 }
@@ -201,7 +201,7 @@ svg.append('text')
 .attr('x', width / 2)
 .attr('y', height + margin.bottom - 10)
 .style('text-anchor', 'middle')
-.text('Latitude');
+.text('Longitude');
 
 svg.append('text')
 .attr('class', 'axis-label')
@@ -209,4 +209,57 @@ svg.append('text')
 .attr('x', -height / 2)
 .attr('y', -margin.left + 15)
 .style('text-anchor', 'middle')
-.text('Longitude');
+.text('Latitude');
+
+// Add a legend
+const legendWidth = 200;
+const legendHeight = 10;
+
+const legend = svg.append('g')
+    .attr('class', 'legend')
+    .attr('transform', `translate(0, ${height + 50})`);
+
+// Add a definition for the gradient
+const defs = svg.append("defs");
+
+const linearGradient = defs.append("linearGradient")
+    .attr("id", "temperature-gradient")
+    .attr("x1", "0%").attr("y1", "0%")
+    .attr("x2", "100%").attr("y2", "0%");
+
+// Define the colors 
+linearGradient.selectAll("stop")
+    .data([
+        {offset: "0%", color: d3.interpolateRdYlBu(1)},     // blue
+        {offset: "50%", color: d3.interpolateRdYlBu(0.5)},  // yellow
+        {offset: "100%", color: d3.interpolateRdYlBu(0)}    //red
+    ])
+    .join("stop")
+    .attr("offset", d => d.offset)
+    .attr("stop-color", d => d.color);
+
+// Draw the bar
+legend.append("rect")
+    .attr("width", legendWidth)
+    .attr("height", legendHeight)
+    .style("fill", "url(#temperature-gradient)");
+
+// Create a scale for the legend axis
+const legendScale = d3.scaleLinear()
+    .domain([min_temp, max_temp])
+    .range([0, legendWidth]);
+
+// Add the axis
+const legendAxis = d3.axisBottom(legendScale).ticks(5);
+
+legend.append("g")
+    .attr("transform", `translate(0, ${legendHeight})`)
+    .call(legendAxis);
+
+// Add a label for the legend
+legend.append("text")
+    .attr("x", 0)
+    .attr("y", -5) // Position slightly above the bar
+    .style("font-size", "12px")
+    .style("font-weight", "bold")
+    .text("Temperature (°F)");
