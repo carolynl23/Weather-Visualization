@@ -1,27 +1,15 @@
-console.log('D3 Version:', d3.version);
+// Specify margin
+const margin = {
+    top: 40,
+    right: 40,
+    bottom: 40,
+    left: 60
+}
 
+const width = 600 - margin.left - margin.right
+const height = 400 - margin.top - margin.bottom
 
-const margin = {top: 40, right: 40, bottom: 40, left: 60};
-const width = 600 - margin.left - margin.right;
-const height = 400 - margin.top - margin.bottom;
-
-//Sample data
-// const data = [10, 30, 45, 60, 20]; // you can try 
-// const categories = ['Apple', 'Banana', 'Pear', 'Orange', 'Grape']
-
-const data = [
-    {count: 10, category: 'Apple'},
-    {count: 30, category: 'Banana'},
-    {count: 45, category: 'Pear'},
-    {count: 60, category: 'Orange'},
-    {count: 20, category: 'Grape'}
-]
-
-const categories = data.map(d => d.category);
-const colors = ['crimson', 'goldenrod', 'lightgreen', 'orange', '#CBC3E3'];
-
-
-// Create SVG
+// Create svg and g
 const svg = d3.select('#vis')
     .append('svg')
     .attr('width', width + margin.left + margin.right)
@@ -29,45 +17,125 @@ const svg = d3.select('#vis')
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-const xScale = d3.scaleBand()
-    .domain(categories)
-    .range([0, width])
-    .padding(0.2)
+
+// Create scales
+const xScale = d3.scaleLinear()
+    .domain([0, 100]) // predefined data range
+    .range([0, width]);
 
 const yScale = d3.scaleLinear()
-    .domain([0, d3.max(data, d=> d.count)])
-    .range([height, 0]);  // Inverted for SVG coordinates
+    .domain([0, 100]) // predefined data range
+    .range([height, 0]);
 
-svg.selectAll('rect')  // Select all rectangles (none exist yet so they are placeholders)
-    .data(data)        // Bind data array to selection
-    .enter()           // Get 'enter' selection for new elements
 
-    .append('rect')        // Add rectangle for each data point
-    .attr('class', 'bar')  // Add CSS class for styling
-    .attr('x', d => xScale(d.category))  // X position from band scale
-    .attr('y', d => yScale(d.count))       // Y position from linear scale
-    .attr('width', xScale.bandwidth())        // Width from band scale, a fixed number
-    .attr('height', d => height - yScale(d.count))  // Height calculation
-    .style('fill', (d,i) => colors[i])
+// Add axes
+const xAxis = d3.axisBottom(xScale)
 
-const xAxis = d3.axisBottom(xScale);
 svg.append('g')
-   .attr('transform', `translate(0,${height})`)
-   .call(xAxis);
+    .attr('transform', `translate(0, ${height})`)
+    .call(xAxis)
 
+const yAxis = d3.axisLeft(yScale)
 
-const yAxis = d3.axisLeft(yScale);
 svg.append('g')
     .attr('class', 'y-axis')
     .call(yAxis);
 
+// Load and display the data
+let currentData = [];
+
+d3.json('data/data.json')
+    .then(data => {
+        console.log(data)
+        currentData = data.points
+        updateVis()
+    })
+    .catch(error => console.error('Error loading data:', error))
+
+d3.select('.point')
+    .data(data, d => d.id)
+    .join(
+
+    )
+
+function updateVis() {
+    svg.selectAll('.point')
+    .data(currentData)
+    .join(
+        enter => {
+            return enter
+            .append('circle')
+            .attr('cx', d => xScale(d.x))
+            .attr('cy', d => yScale(d.y))
+            .attr('r', 5)
+            .style('fill', d => d.color)
+            .attr('class', 'point')
+        },
+        update => {
+            return update
+            .transition()
+            .attr('cx', d => xScale(d.x))
+            .attr('cy', d => yScale(d.y))
+        },
+        exit => {
+            return exit.remove()
+        }
+    )
+    
+}
+
+// Create functions to update data
+
+function addRandomPoint() {
+    // for debugging
+    console.log('add point')
+    const newPoint = {
+        x: Math.floor(Math.random() * (101)),
+        y: Math.floor(Math.random() * (101)),
+        color: 'red'
+    };
+    currentData.push(newPoint);
+    // call to update visualization
+    updateVis();
+}
+
+function removeRandomPoint() {
+    // for debugging
+    console.log('remove point')
+    currentData.pop();
+    // call to update visualization
+    updateVis();
+}
+
+function updateRandomPoints() {
+    // for debugging
+    console.log('update points')
+    currentData = currentData.map(d => ({
+        id: currentData.length + 1,
+        x: d.x + Math.floor(Math.random() * (11)) - 5,
+        y: d.y + Math.floor(Math.random() * (11)) - 5
+    }));
+    // call to update visualization
+    updateVis();
+}
+
+// Add event listeners
+d3.select('#addPoint')
+    .on('click', addRandomPoint);
+
+d3.select('#removePoint')
+    .on('click', removeRandomPoint);
+
+d3.select('#updatePoints')
+    .on('click', updateRandomPoints);
+
+// Add labels
 svg.append('text')
 .attr('class', 'axis-label')
 .attr('x', width / 2)
 .attr('y', height + margin.bottom - 10)
 .style('text-anchor', 'middle')
-.text('fruit');
-
+.text('Number of Students');
 
 svg.append('text')
 .attr('class', 'axis-label')
@@ -75,13 +143,4 @@ svg.append('text')
 .attr('x', -height / 2)
 .attr('y', -margin.left + 15)
 .style('text-anchor', 'middle')
-.text('count');
-
-// var x = d3.scaleLinear()
-//     .domain([-1, 1])
-//     .range([0, 960]);
-
-// var ticks = x.ticks(5),
-//     tickFormat = x.tickFormat(5, "+%");
-
-// ticks.map(tickFormat); // ["-100%", "-50%", "+0%", "+50%", "+100%"]
+.text('Hours of Homework');
