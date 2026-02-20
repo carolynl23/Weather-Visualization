@@ -1,4 +1,4 @@
-// Specify margin
+// Specify margin.
 const margin = {
     top: 40,
     right: 40,
@@ -9,6 +9,75 @@ const margin = {
 const width = 600 - margin.left - margin.right
 const height = 400 - margin.top - margin.bottom
 
+// Returns a Date object from a raw string in YYYMMDD format.
+function parseDate(date) {
+    const year = parseInt(date.substring(0, 4), 10);
+    const month = parseInt(date.substring(4, 6), 10) - 1;
+    const day = parseInt(date.substring(6, 8), 10);
+
+    return new Date(year, month, day);
+}
+
+// Initialize the variable to store the data.
+let weather_data;
+
+// Bounding latitude and longitude points for contiguous U.S. (excluding Hawaii, Alaska, and territories).
+let south_bound = 24.52;
+let north_bound = 49.38;
+let west_bound = -124.78;
+let east_bound = -66.95;
+
+// Load the data.
+d3.csv('data/weather.csv').then(data => {
+    // Remove unnecessary columns.
+    data.forEach(d => {
+        delete d.elevation;
+        delete d.TMIN;
+        delete d.TMAX;
+        delete d.AWND;
+        delete d.WDF5;
+        delete d.WSF5;
+        delete d.SNOW;
+        delete d.SNWD;
+        delete d.PRCP;
+    });
+
+    // Remove data points with missing values.
+    data = data.filter(d => d.latitude !== "");
+    data = data.filter(d => d.longtitude !== "");
+    data = data.filter(d => d.date !== "");
+    data = data.filter(d => d.TAVG !== "");
+
+    console.log("Removed unncessary columns and missing values.");
+
+    return data;
+}).then(data => {
+    // Convert to the proper types.
+    data.forEach(d => {
+        d.latitude = parseFloat(d.latitude);
+        d.longitude = parseFloat(d.longitude);
+        d.date = parseDate(d.date);
+        d.TAVG = parseFloat(d.TAVG);
+    });
+
+    console.log("Converted to proper types.");
+    
+    return data;
+}).then(data => {
+    // Filter for values in contiguous U.S. (excluding Hawaii, Alaska, and territories),
+    data = data.filter(d => (d.latitude >= south_bound) && (d.latitude <= north_bound));
+    data = data.filter(d => (d.longitude >= west_bound) && (d.longitude <= east_bound));
+    
+    console.log("Filtered for contiguous U.S.");
+
+    return data;
+}).then(data => {
+    // Store the data.
+    weather_data = data;
+    console.log("Loaded data:", weather_data);
+    console.log(weather_data.length, "values loaded.")
+});
+
 // Create svg and g
 const svg = d3.select('#vis')
     .append('svg')
@@ -16,7 +85,6 @@ const svg = d3.select('#vis')
     .attr('height', height + margin.top + margin.bottom)
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
-
 
 // Create scales
 const xScale = d3.scaleLinear()
