@@ -19,13 +19,17 @@ function parseDate(date) {
 }
 
 // Initialize the variable to store the data.
-let weather_data;
+let weather_data = [];
 
 // Bounding latitude and longitude points for contiguous U.S. (excluding Hawaii, Alaska, and territories).
-let south_bound = 24.52;
-let north_bound = 49.38;
-let west_bound = -124.78;
-let east_bound = -66.95;
+const south_bound = 24.52;
+const north_bound = 49.38;
+const west_bound = -124.78;
+const east_bound = -66.95;
+
+// Min and max average temperatures.
+const min_temp = -20.56;
+const max_temp = 105.26;
 
 // Load the data.
 d3.csv('data/weather.csv').then(data => {
@@ -57,7 +61,7 @@ d3.csv('data/weather.csv').then(data => {
         d.latitude = parseFloat(d.latitude);
         d.longitude = parseFloat(d.longitude);
         d.date = parseDate(d.date);
-        d.TAVG = parseFloat(d.TAVG);
+        d.temp = parseFloat(d.TAVG);
     });
 
     console.log("Converted to proper types.");
@@ -70,12 +74,21 @@ d3.csv('data/weather.csv').then(data => {
     
     console.log("Filtered for contiguous U.S.");
 
+    // Check the min and max average temperatures.
+    // Min and max temps are -20.56 and 105.26.
+    console.log("Min avg temp:", Math.min(...data.map(d => d.temp)));
+    console.log("Max avg temp:", Math.max(...data.map(d => d.temp)));
+
     return data;
 }).then(data => {
     // Store the data.
     weather_data = data;
+
     console.log("Loaded data:", weather_data);
     console.log(weather_data.length, "values loaded.")
+
+    // Update the visualization.
+    updateVis();
 });
 
 // Create svg and g
@@ -86,17 +99,19 @@ const svg = d3.select('#vis')
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-// Create scales
+// Create scales.
 const xScale = d3.scaleLinear()
-    .domain([0, 100]) // predefined data range
+    .domain([west_bound, east_bound]) // predefined data range
     .range([0, width]);
 
 const yScale = d3.scaleLinear()
-    .domain([0, 100]) // predefined data range
+    .domain([south_bound, north_bound]) // predefined data range
     .range([height, 0]);
 
+const colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+    .domain([100, -20]);
 
-// Add axes
+// Add axes.
 const xAxis = d3.axisBottom(xScale)
 
 svg.append('g')
@@ -109,50 +124,33 @@ svg.append('g')
     .attr('class', 'y-axis')
     .call(yAxis);
 
-// Load and display the data
-let currentData = [];
-
-d3.json('data/data.json')
-    .then(data => {
-        console.log(data)
-        currentData = data.points
-        updateVis()
-    })
-    .catch(error => console.error('Error loading data:', error))
-
-d3.select('.point')
-    .data(data, d => d.id)
-    .join(
-
-    )
+// Display the data.
 
 function updateVis() {
     svg.selectAll('.point')
-    .data(currentData)
+    .data(weather_data)
     .join(
         enter => {
             return enter
             .append('circle')
-            .attr('cx', d => xScale(d.x))
-            .attr('cy', d => yScale(d.y))
-            .attr('r', 5)
-            .style('fill', d => d.color)
+            .attr('cx', d => xScale(d.longitude))
+            .attr('cy', d => yScale(d.latitude))
+            .attr('r', 1.5)
+            .style('fill', 'steelblue')
+            .attr('opacity', 0.8)
             .attr('class', 'point')
         },
         update => {
             return update
             .transition()
-            .attr('cx', d => xScale(d.x))
-            .attr('cy', d => yScale(d.y))
-        },
-        exit => {
-            return exit.remove()
+            .attr('cx', d => xScale(d.longitude))
+            .attr('cy', d => yScale(d.latitude))
+            .style('fill', 'steelblue')
         }
     )
-    
 }
 
-// Create functions to update data
+// Create functions to update data (from lab 3)
 
 function addRandomPoint() {
     // for debugging
@@ -203,7 +201,7 @@ svg.append('text')
 .attr('x', width / 2)
 .attr('y', height + margin.bottom - 10)
 .style('text-anchor', 'middle')
-.text('Number of Students');
+.text('Latitude');
 
 svg.append('text')
 .attr('class', 'axis-label')
@@ -211,4 +209,4 @@ svg.append('text')
 .attr('x', -height / 2)
 .attr('y', -margin.left + 15)
 .style('text-anchor', 'middle')
-.text('Hours of Homework');
+.text('Longitude');
