@@ -1,6 +1,6 @@
 const margin = { top: 40, right: 40, bottom: 60, left: 60 };
-const width = 1000 - margin.left - margin.right;
-const height = 640 - margin.top - margin.bottom;
+const width = 800 - margin.left - margin.right;
+const height = 500 - margin.top - margin.bottom;
 
 // Contiguous U.S. bounds (excluding AK/HI/territories)
 const southBound = 24.52;
@@ -12,17 +12,25 @@ const eastBound = -66.95;
 const startDate = new Date(2017, 0, 1);
 
 // Helpers functions
+// Returns a Date object from a raw string in YYYMMDD format.
 function parseDate(dateStr) {
   const year = parseInt(dateStr.substring(0, 4), 10);
   const month = parseInt(dateStr.substring(4, 6), 10) - 1;
   const day = parseInt(dateStr.substring(6, 8), 10);
+
   return new Date(year, month, day);
 }
 
-function dateIndexToDate(idx) {
-  const d = new Date(startDate);
-  d.setDate(d.getDate() + idx);
-  return d;
+// Returns a Date object that is dateIdx days away from Jaunary 1st, 2017.
+function dateIndexToDate(dateIdx) {
+  // Get the start date.
+  const targetDate = new Date(startDate);
+
+  // Add the number of days in the index.
+  targetDate.setDate(targetDate.getDate() + dateIdx);
+
+  // Return the target data
+  return targetDate;
 }
 
 function sameDay(a, b) {
@@ -33,25 +41,27 @@ function sameDay(a, b) {
   );
 }
 
+// Format Date properly
 function formatDate(d) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-// State
+// Initialize the variable to store the data
 let weatherData = [];
+
+// Min and Max possible temperatures
 let minTemp = Infinity;
 let maxTemp = -Infinity;
+
+//for the background map
 let projection = null;
 let geoPath = null;
 
 // Build SVG
-const svgRoot = d3
-  .select("#vis")
+const svg = d3.select("#vis")
   .append("svg")
   .attr("width", width + margin.left + margin.right)
-  .attr("height", height + margin.top + margin.bottom);
-
-const svg = svgRoot
+  .attr("height", height + margin.top + margin.bottom)
   .append("g")
   .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -88,6 +98,15 @@ svg.append("text")
   .style("text-anchor", "middle")
   .text("Latitude");
 
+// Zoom in and out of the map
+const zoom = d3.zoom()
+  .scaleExtent([1, 10])
+  .on("zoom", (event) => {
+    mapLayer.attr("transform", event.transform);
+  });
+
+svg.call(zoom);
+
 // Tooltip style (basic details of station that is plotted)
 const tooltip = d3
   .select("body")
@@ -105,15 +124,6 @@ const tooltip = d3
   .style("font-size", "12px")
   .style("line-height", "1.3");
 
-// Zoom in and out of the map
-const zoom = d3.zoom()
-  .scaleExtent([1, 10])
-  .on("zoom", (event) => {
-    mapLayer.attr("transform", event.transform);
-  });
-
-svgRoot.call(zoom);
-
 // Slider wiring
 const slider = d3.select("#dateSlider");
 const dateLabel = d3.select("#dateLabel");
@@ -123,36 +133,39 @@ slider.on("input", function () {
   updateVis(idx);
 });
 
-// Legend
+// Legend function
 function drawLegend(colorScale, domainMin, domainMax) {
   d3.select("#legend").selectAll("*").remove();
 
   const legendWidth = 280;
   const legendHeight = 10;
 
+  // Create a SVG for teh legend below the plot
   const legendSvg = d3.select("#legend")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", 90);
 
-  const legendG = legendSvg.append("g")
+  const legend = legendSvg.append("g")
     .attr("transform", `translate(${(width - legendWidth) / 2 + margin.left}, 25)`);
 
+  // Add a definition for the gradient
   const defs = legendSvg.append("defs");
-  const gradient = defs.append("linearGradient")
+
+  const linearGradient = defs.append("linearGradient")
     .attr("id", "legend-gradient")
     .attr("x1", "0%").attr("y1", "0%")
     .attr("x2", "100%").attr("y2", "0%");
 
   // Build gradient stops by sampling the color scale
   const stops = d3.range(0, 1.00001, 0.1);
-  gradient.selectAll("stop")
+  linearGradient.selectAll("stop")
     .data(stops)
     .join("stop")
     .attr("offset", d => `${d * 100}%`)
     .attr("stop-color", d => colorScale(domainMin + d * (domainMax - domainMin)));
 
-  legendG.append("rect")
+  legend.append("rect")
     .attr("width", legendWidth)
     .attr("height", legendHeight)
     .style("fill", "url(#legend-gradient)");
@@ -161,20 +174,22 @@ function drawLegend(colorScale, domainMin, domainMax) {
     .domain([domainMin, domainMax])
     .range([0, legendWidth]);
 
-  legendG.append("g")
+  legend.append("g")
     .attr("transform", `translate(0, ${legendHeight})`)
     .call(d3.axisBottom(legendScale).ticks(6));
 
-  legendG.append("text")
+  legend.append("text")
     .attr("x", 0)
     .attr("y", -8)
     .style("font-size", "12px")
-    .style("font-weight", "600")
+    .style("font-weight", "bold")
     .text("Average Temperature (°F)");
 }
 
-// Main update to graph function
+// Main update to graph function --> updates the visualization to show temperature data from a specific data.
+
 function updateVis(currDateIdx) {
+  // Filter weatherData to get data from the specified date.
   const currDate = dateIndexToDate(currDateIdx);
   dateLabel.text(formatDate(currDate));
 
@@ -205,7 +220,7 @@ function updateVis(currDateIdx) {
     .clamp(true)
     .interpolator(d3.interpolateRdYlBu);
 
-  // Draw update points
+  // Draw update points (tooltip events)
   pointsLayer
     .selectAll(".point")
     .data(dayData, (d) => `${d.station}_${d.latitude}_${d.longitude}`)
@@ -264,8 +279,10 @@ Promise.all([
   // --- projection + path ---
   projection = d3
     .geoAlbersUsa()
-    .translate([width / 2, height / 2])
-    .scale(1350);
+    .fitSize([width/1.25, height], usGeo);
+
+    // .translate([width / 2, height / 2])
+    // .scale(width * 1);
 
   geoPath = d3.geoPath().projection(projection);
 
@@ -284,19 +301,23 @@ Promise.all([
     return true;
   });
 
-  // --- Draw states (background) ---
+  // Draw states (background)
   statesLayer
     .selectAll("path")
     .data(contiguousFeatures)
     .join("path")
     .attr("d", geoPath)
-    .attr("fill", "#f6f6f6")
-    .attr("stroke", "#9a9a9a")
+    .attr("fill", "#0f0e0e")
+    .attr("stroke", "#dfd5d5")
     .attr("stroke-width", 0.6);
 
-  // --- Parse weather data ---
+  // Parse weather data (leave out data from Canada, Alaska, and Hawaii)
   weatherData = data
-    .filter((d) => d.latitude !== "" && d.longitude !== "" && d.date !== "")
+    .filter((d) => 
+      d.latitude !== "" && 
+      d.longitude !== "" && 
+      d.date !== "" &&
+      !["AK", "HI", "ON", "AB", "BC", "QC", "NS", "NB", "PE", "MB"].includes(d.state))
     .map((d) => ({
       station: d.station,
       state: d.state,
