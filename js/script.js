@@ -279,7 +279,7 @@ legend.append("rect")
     .attr("height", legendHeight)
     .style("fill", "url(#temperature-gradient)");
 
-// Create a scale for the legend axis/
+// Create a scale for the legend axis
 const legendScale = d3.scaleLinear()
     .domain([minTemp, maxTemp])
     .range([0, legendWidth]);
