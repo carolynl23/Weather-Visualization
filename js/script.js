@@ -1,300 +1,361 @@
-// Specify the margin, width, and ehight of the temperature plot.
-const margin = {top: 40, right: 40, bottom: 60, left: 60}
-const width = 600 - margin.left - margin.right
-const height = 400 - margin.top - margin.bottom
+const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+const width = 800 - margin.left - margin.right;
+const height = 500 - margin.top - margin.bottom;
 
-// Returns a Date object from a raw string in YYYMMDD format.
-function parseDate(date) {
-    const year = parseInt(date.substring(0, 4), 10);
-    const month = parseInt(date.substring(4, 6), 10) - 1;
-    const day = parseInt(date.substring(6, 8), 10);
-
-    return new Date(year, month, day);
-}
-
-// Returns a Date object that is dateIdx days away from Jaunary 1st, 2017.
-function dateIndexToDate(dateIdx) {
-    // Get the start date.
-    const targetDate = new Date(startDate);
-
-    // Add the number of days in the index.
-    targetDate.setDate(targetDate.getDate() + dateIdx);
-
-    // Return the target date.
-    return targetDate;
-}
-
-// Filters the weather data to only get values from a specific date.
-function filterByDate(weatherData, date) {
-    return weatherData.filter(d =>
-        d.date.getFullYear() === date.getFullYear() &&
-        d.date.getMonth() === date.getMonth() &&
-        d.date.getDate() === date.getDate()
-    );
-}
-
-// Initialize the variable to store the data.
-let weatherData = [];
-// Start date is January 1st, 2017 (months are zero-indexed).
-const startDate = new Date(2017, 0, 1, 0, 0, 0, 0);
-// Number of days past the start date to show data from.
-let currDateIdx = 0;
-
-// Bounding latitude and longitude points for contiguous U.S. (excluding Hawaii, Alaska, and territories).
+// Contiguous U.S. bounds (excluding AK/HI/territories)
 const southBound = 24.52;
 const northBound = 49.38;
 const westBound = -124.78;
 const eastBound = -66.95;
 
-// Min and max average temperatures.
-const minTemp = -20.56;
-const maxTemp = 105.26;
+// Start date: Jan 1, 2017
+const startDate = new Date(2017, 0, 1);
 
-// Load the data.
-d3.csv('data/weather.csv').then(data => {
-    // Remove unnecessary columns.
-    data.forEach(d => {
-        delete d.elevation;
-        delete d.TMIN;
-        delete d.TMAX;
-        delete d.AWND;
-        delete d.WDF5;
-        delete d.WSF5;
-        delete d.SNOW;
-        delete d.SNWD;
-        delete d.PRCP;
-    });
+// Helpers functions
+// Returns a Date object from a raw string in YYYMMDD format.
+function parseDate(dateStr) {
+  const year = parseInt(dateStr.substring(0, 4), 10);
+  const month = parseInt(dateStr.substring(4, 6), 10) - 1;
+  const day = parseInt(dateStr.substring(6, 8), 10);
 
-    // Remove data points with missing values.
-    data = data.filter(d => d.latitude !== "");
-    data = data.filter(d => d.longitude !== "");
-    data = data.filter(d => d.date !== "");
-    data = data.filter(d => d.TAVG !== "");
+  return new Date(year, month, day);
+}
 
-    console.log("Removed unncessary columns and missing values.");
+// Returns a Date object that is dateIdx days away from Jaunary 1st, 2017.
+function dateIndexToDate(dateIdx) {
+  // Get the start date.
+  const targetDate = new Date(startDate);
 
-    return data;
-}).then(data => {
-    // Convert to the proper types.
-    data.forEach(d => {
-        d.latitude = parseFloat(d.latitude);
-        d.longitude = parseFloat(d.longitude);
-        d.date = parseDate(d.date);
-        d.temp = parseFloat(d.TAVG);
-    });
+  // Add the number of days in the index.
+  targetDate.setDate(targetDate.getDate() + dateIdx);
 
-    console.log("Converted to proper types.");
-    
-    return data;
-}).then(data => {
-    // Filter for values in contiguous U.S. (excluding Hawaii, Alaska, and territories),
-    data = data.filter(d => (d.latitude >= southBound) && (d.latitude <= northBound));
-    data = data.filter(d => (d.longitude >= westBound) && (d.longitude <= eastBound));
-    
-    console.log("Filtered for contiguous U.S.");
+  // Return the target data
+  return targetDate;
+}
 
-    // Check the min and max average temperatures.
-    // Min and max temps are -20.56 and 105.26.
-    console.log("Min avg temp:", Math.min(...data.map(d => d.temp)));
-    console.log("Max avg temp:", Math.max(...data.map(d => d.temp)));
+function sameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-    // Check the min and max dates.
-    // Min and max dates are January 1st, 2017 and September 17th, 2017.
-    console.log("Min date:", new Date(Math.min(...data.map(d => d.date))));
-    console.log("Max date:", new Date(Math.max(...data.map(d => d.date))));
+// Format Date properly
+function formatDate(d) {
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
 
-    return data;
-}).then(data => {
-    // Store the data.
-    weatherData = data;
+// Initialize the variable to store the data
+let weatherData = [];
 
-    console.log("Loaded data:", weatherData);
-    console.log("Number of values loaded:", weatherData.length);
+// Min and Max possible temperatures
+let minTemp = Infinity;
+let maxTemp = -Infinity;
 
-    // Update the visualization.
-    updateVis(currDateIdx);
+//for the background map
+let projection = null;
+let geoPath = null;
+
+// Build SVG
+const svg = d3.select("#vis")
+  .append("svg")
+  .attr("width", width + margin.left + margin.right)
+  .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+// All map + points go inside this so zoom works on everything
+const mapLayer = svg.append("g").attr("class", "map-layer");
+const statesLayer = mapLayer.append("g").attr("class", "states-layer");
+const pointsLayer = mapLayer.append("g").attr("class", "points-layer");
+
+// Scales
+const xScale = d3.scaleLinear().domain([westBound, eastBound]).range([0, width]);
+const yScale = d3.scaleLinear().domain([southBound, northBound]).range([height, 0]);
+
+// Axes
+svg.append("g")
+  .attr("transform", `translate(0, ${height})`)
+  .call(d3.axisBottom(xScale));
+
+svg.append("g")
+  .call(d3.axisLeft(yScale));
+
+// Axis labels
+svg.append("text")
+  .attr("class", "axis-label")
+  .attr("x", width / 2)
+  .attr("y", height + margin.bottom - 10)
+  .style("text-anchor", "middle")
+  .text("Longitude");
+
+svg.append("text")
+  .attr("class", "axis-label")
+  .attr("transform", "rotate(-90)")
+  .attr("x", -height / 2)
+  .attr("y", -margin.left + 15)
+  .style("text-anchor", "middle")
+  .text("Latitude");
+
+// Zoom in and out of the map
+const zoom = d3.zoom()
+  .scaleExtent([1, 10])
+  .on("zoom", (event) => {
+    mapLayer.attr("transform", event.transform);
+  });
+
+svg.call(zoom);
+
+// Tooltip style (basic details of station that is plotted)
+const tooltip = d3
+  .select("body")
+  .append("div")
+  .attr("class", "tooltip")
+  .style("position", "absolute")
+  .style("background", "white")
+  .style("border", "1px solid #ccc")
+  .style("padding", "8px 10px")
+  .style("border-radius", "8px")
+  .style("pointer-events", "none")
+  .style("opacity", 0)
+  .style("box-shadow", "0 8px 20px rgba(0,0,0,0.12)")
+  .style("font-family", "Noto Sans, sans-serif")
+  .style("font-size", "12px")
+  .style("line-height", "1.3");
+
+// Slider wiring
+const slider = d3.select("#dateSlider");
+const dateLabel = d3.select("#dateLabel");
+
+slider.on("input", function () {
+  const idx = +this.value;
+  updateVis(idx);
 });
 
-// Create svg and g
-const svg = d3.select('#vis')
-    .append('svg')
-    .attr('width', width + margin.left + margin.right)
-    .attr('height', height + margin.top + margin.bottom)
-    .append('g')
-    .attr('transform', `translate(${margin.left},${margin.top})`);
+// Legend function
+function drawLegend(colorScale, domainMin, domainMax) {
+  d3.select("#legend").selectAll("*").remove();
 
-// Create scales.
-const xScale = d3.scaleLinear()
-    .domain([westBound, eastBound]) // predefined data range
-    .range([0, width]);
+  const legendWidth = 280;
+  const legendHeight = 10;
 
-const yScale = d3.scaleLinear()
-    .domain([southBound, northBound]) // predefined data range
-    .range([height, 0]);
+  // Create a SVG for teh legend below the plot
+  const legendSvg = d3.select("#legend")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", 90);
 
-const colorScale = d3.scaleDiverging()
-  .domain([maxTemp, 50, minTemp]) // [minimum, center/zero, maximum]
-  .interpolator(d3.interpolateRdYlBu);
+  const legend = legendSvg.append("g")
+    .attr("transform", `translate(${(width - legendWidth) / 2 + margin.left}, 25)`);
 
-// Add axes.
-const xAxis = d3.axisBottom(xScale)
+  // Add a definition for the gradient
+  const defs = legendSvg.append("defs");
 
-svg.append('g')
-    .attr('transform', `translate(0, ${height})`)
-    .call(xAxis)
-
-const yAxis = d3.axisLeft(yScale)
-
-svg.append('g')
-    .attr('class', 'y-axis')
-    .call(yAxis);
-
-// Updates the visualization to show temperature data from a specific data.
-function updateVis(currDateIdx) {
-    // Filter weatherData to get data from the specified date.
-    let currDate = dateIndexToDate(currDateIdx);
-    const filteredData = filterByDate(weatherData, currDate);
-
-    console.log("Filtered for values from date:", currDate);
-
-    // Update the visualization.
-    svg.selectAll('.point')
-    .data(filteredData)
-    .join(
-        enter => {
-            return enter
-            .append('circle')
-            .attr('cx', d => xScale(d.longitude))
-            .attr('cy', d => yScale(d.latitude))
-            .attr('r', 3)
-            .style('fill', d => colorScale(d.temp))
-            .attr('opacity', 0.6)
-            .attr('class', 'point')
-        },
-        update => {
-            return update
-            .transition()
-            .attr('cx', d => xScale(d.longitude))
-            .attr('cy', d => yScale(d.latitude))
-            .style('fill', d => colorScale(d.temp))
-        }
-    )
-}
-
-// Create functions to update data (from lab 3)
-function addRandomPoint() {
-    // for debugging
-    console.log('add point')
-    const newPoint = {
-        x: Math.floor(Math.random() * (101)),
-        y: Math.floor(Math.random() * (101)),
-        color: 'red'
-    };
-    currentData.push(newPoint);
-    // call to update visualization
-    updateVis();
-}
-
-function removeRandomPoint() {
-    // for debugging
-    console.log('remove point')
-    currentData.pop();
-    // call to update visualization
-    updateVis();
-}
-
-function updateRandomPoints() {
-    // for debugging
-    console.log('update points')
-    currentData = currentData.map(d => ({
-        id: currentData.length + 1,
-        x: d.x + Math.floor(Math.random() * (11)) - 5,
-        y: d.y + Math.floor(Math.random() * (11)) - 5
-    }));
-    // call to update visualization
-    updateVis();
-}
-
-// Add event listeners
-d3.select('#addPoint')
-    .on('click', addRandomPoint);
-
-d3.select('#removePoint')
-    .on('click', removeRandomPoint);
-
-d3.select('#updatePoints')
-    .on('click', updateRandomPoints);
-
-// Add labels for the axes.
-svg.append('text')
-.attr('class', 'axis-label')
-.attr('x', width / 2)
-.attr('y', height + margin.bottom - 10)
-.style('text-anchor', 'middle')
-.text('Longitude');
-
-svg.append('text')
-.attr('class', 'axis-label')
-.attr('transform', 'rotate(-90)')
-.attr('x', -height / 2)
-.attr('y', -margin.left + 15)
-.style('text-anchor', 'middle')
-.text('Latitude');
-
-// Add a legend.
-const legendWidth = 200;
-const legendHeight = 10;
-
-// Create a SVG for the legend below the plot.
-const legendSvg = d3.select('#legend')
-    .append('svg')
-    .attr('width', width + margin.left + margin.right)
-    .attr('height', 80);   // controls spacing below the axis label
-
-const legend = legendSvg.append('g')
-    .attr('transform', `translate(${(width - legendWidth)/2 + margin.left}, 25)`);
-
-// Add a definition for the gradient.
-const defs = legendSvg.append("defs");
-
-const linearGradient = defs.append("linearGradient")
-    .attr("id", "temperature-gradient")
+  const linearGradient = defs.append("linearGradient")
+    .attr("id", "legend-gradient")
     .attr("x1", "0%").attr("y1", "0%")
     .attr("x2", "100%").attr("y2", "0%");
 
-// Define the colors .
-linearGradient.selectAll("stop")
-    .data([
-        {offset: "0%", color: d3.interpolateRdYlBu(1)},     // blue
-        {offset: "50%", color: d3.interpolateRdYlBu(0.5)},  // yellow
-        {offset: "100%", color: d3.interpolateRdYlBu(0)}    //red
-    ])
+  // Build gradient stops by sampling the color scale
+  const stops = d3.range(0, 1.00001, 0.1);
+  linearGradient.selectAll("stop")
+    .data(stops)
     .join("stop")
-    .attr("offset", d => d.offset)
-    .attr("stop-color", d => d.color);
+    .attr("offset", d => `${d * 100}%`)
+    .attr("stop-color", d => colorScale(domainMin + d * (domainMax - domainMin)));
 
-// Draw the bar.
-legend.append("rect")
+  legend.append("rect")
     .attr("width", legendWidth)
     .attr("height", legendHeight)
-    .style("fill", "url(#temperature-gradient)");
+    .style("fill", "url(#legend-gradient)");
 
-// Create a scale for the legend axis
-const legendScale = d3.scaleLinear()
-    .domain([minTemp, maxTemp])
+  const legendScale = d3.scaleLinear()
+    .domain([domainMin, domainMax])
     .range([0, legendWidth]);
 
-// Add the axis.
-const legendAxis = d3.axisBottom(legendScale).ticks(5);
-
-legend.append("g")
+  legend.append("g")
     .attr("transform", `translate(0, ${legendHeight})`)
-    .call(legendAxis);
+    .call(d3.axisBottom(legendScale).ticks(6));
 
-// Add a label for the legend.
-legend.append("text")
+  legend.append("text")
     .attr("x", 0)
-    .attr("y", -5)
+    .attr("y", -8)
     .style("font-size", "12px")
     .style("font-weight", "bold")
-    .text("Temperature (°F)");
+    .text("Average Temperature (°F)");
+}
+
+// Main update to graph function --> updates the visualization to show temperature data from a specific data.
+
+function updateVis(currDateIdx) {
+  // Filter weatherData to get data from the specified date.
+  const currDate = dateIndexToDate(currDateIdx);
+  dateLabel.text(formatDate(currDate));
+
+  // Filter to current date and points that project into mainland US
+  const dayData = weatherData
+    .filter((d) => sameDay(d.date, currDate))
+    .filter((d) => projection([d.longitude, d.latitude]) !== null)
+    .filter((d) => d.TAVG !== null); // first version uses TAVG
+
+  // If no data, then should not see a point
+  if (dayData.length === 0) {
+    pointsLayer.selectAll(".point").remove();
+    return;
+  }
+
+  // bolder colors via per-day percentile domain
+  const values = dayData
+    .map((d) => d.TAVG)
+    .filter((v) => v != null)
+    .sort(d3.ascending);
+
+  const lo = d3.quantile(values, 0.05);
+  const hi = d3.quantile(values, 0.95);
+
+  const colorScale = d3
+    .scaleSequential()
+    .domain([hi, lo])
+    .clamp(true)
+    .interpolator(d3.interpolateRdYlBu);
+
+  // Draw update points (tooltip events)
+  pointsLayer
+    .selectAll(".point")
+    .data(dayData, (d) => `${d.station}_${d.latitude}_${d.longitude}`)
+    .join(
+      (enter) =>
+        enter
+          .append("circle")
+          .attr("class", "point")
+          .attr("r", 3.2)
+          .attr("opacity", 0.75)
+          .attr("cx", (d) => projection([d.longitude, d.latitude])[0])
+          .attr("cy", (d) => projection([d.longitude, d.latitude])[1])
+          .style("fill", (d) => colorScale(d.TAVG))
+          .on("mouseover", (event, d) => {
+            tooltip
+              .style("opacity", 1)
+              .html(
+                `
+                <div><b>${d.station}</b> (${d.state})</div>
+                <div>${formatDate(d.date)}</div>
+                <div>Lat: ${d.latitude.toFixed(2)}, Lon: ${d.longitude.toFixed(2)}</div>
+                <div><b>TAVG:</b> ${d.TAVG} °F</div>
+              `
+              );
+          })
+          .on("mousemove", (event) => {
+            tooltip
+              .style("left", event.pageX + 12 + "px")
+              .style("top", event.pageY + 12 + "px");
+          })
+          .on("mouseout", () => tooltip.style("opacity", 0)),
+      (update) =>
+        update
+          .transition()
+          .duration(120)
+          .attr("cx", (d) => projection([d.longitude, d.latitude])[0])
+          .attr("cy", (d) => projection([d.longitude, d.latitude])[1])
+          .style("fill", (d) => colorScale(d.TAVG)),
+      (exit) => exit.remove()
+    );
+
+  // Legend (use percentile domain so it matches stronger contrast)
+  drawLegend(colorScale, lo, hi, "Average Temperature (°F) — (5th–95th percentile)");
+}
+
+// Slider event
+slider.on("input", function () {
+  updateVis(+this.value);
+});
+
+// Load map and data
+Promise.all([
+  d3.json("data/gz_2010_us_040_00_500k.json"),
+  d3.csv("data/weather.csv"),
+]).then(([usGeo, data]) => {
+  // --- projection + path ---
+  projection = d3
+    .geoAlbersUsa()
+    .fitSize([width/1.25, height], usGeo);
+
+    // .translate([width / 2, height / 2])
+    // .scale(width * 1);
+
+  geoPath = d3.geoPath().projection(projection);
+
+  const props = usGeo.features?.[0]?.properties || {};
+  const hasSTATE = Object.prototype.hasOwnProperty.call(props, "STATE");
+  const hasSTATEFP = Object.prototype.hasOwnProperty.call(props, "STATEFP");
+  const hasNAME = Object.prototype.hasOwnProperty.call(props, "NAME");
+
+  const excludeByCode = new Set(["02", "15", "72"]); // AK, HI, PR
+  const excludeByName = new Set(["Alaska", "Hawaii", "Puerto Rico"]);
+
+  const contiguousFeatures = usGeo.features.filter((f) => {
+    if (hasSTATE && excludeByCode.has(f.properties.STATE)) return false;
+    if (hasSTATEFP && excludeByCode.has(f.properties.STATEFP)) return false;
+    if (hasNAME && excludeByName.has(f.properties.NAME)) return false;
+    return true;
+  });
+
+  // Draw states (background)
+  statesLayer
+    .selectAll("path")
+    .data(contiguousFeatures)
+    .join("path")
+    .attr("d", geoPath)
+    .attr("fill", "#0f0e0e")
+    .attr("stroke", "#dfd5d5")
+    .attr("stroke-width", 0.6);
+
+  // Parse weather data (leave out data from Canada, Alaska, and Hawaii)
+  weatherData = data
+    .filter((d) => 
+      d.latitude !== "" && 
+      d.longitude !== "" && 
+      d.date !== "" &&
+      !["AK", "HI", "ON", "AB", "BC", "QC", "NS", "NB", "PE", "MB"].includes(d.state))
+    .map((d) => ({
+      station: d.station,
+      state: d.state,
+      latitude: +d.latitude,
+      longitude: +d.longitude,
+      date: parseDate(d.date),
+
+      // parse for future use maybe?
+      TMIN: d.TMIN === "" ? null : +d.TMIN,
+      TMAX: d.TMAX === "" ? null : +d.TMAX,
+      TAVG: d.TAVG === "" ? null : +d.TAVG,
+      AWND: d.AWND === "" ? null : +d.AWND,
+      WDF5: d.WDF5 === "" ? null : +d.WDF5,
+      WSF5: d.WSF5 === "" ? null : +d.WSF5,
+      SNOW: d.SNOW === "" ? null : +d.SNOW,
+      SNWD: d.SNWD === "" ? null : +d.SNWD,
+      PRCP: d.PRCP === "" ? null : +d.PRCP,
+    }));
+
+  // Determine slider range based on available dates in the data
+  const minDate = d3.min(weatherData, (d) => d.date);
+  const maxDate = d3.max(weatherData, (d) => d.date);
+
+  const minIdx = Math.max(
+    0,
+    Math.round((minDate - startDate) / (1000 * 60 * 60 * 24))
+  );
+  const maxIdx = Math.max(
+    0,
+    Math.round((maxDate - startDate) / (1000 * 60 * 60 * 24))
+  );
+
+  slider.attr("min", minIdx).attr("max", maxIdx).attr("value", minIdx);
+
+  // Initial render
+  updateVis(minIdx);
+
+  console.log("Loaded weather rows:", weatherData.length);
+  console.log("Weather date range:", minDate, "to", maxDate);
+  console.log("GeoJSON properties example:", props);
+});

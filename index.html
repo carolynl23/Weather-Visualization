@@ -11,24 +11,45 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="container">
+    <h1>Daily Temperatures in the U.S.</h1>
+
+    <p>Brief intro to dataset.</p>
+
+    <div class="controls">
+      <div class="date-row">
+        <label for="dateSlider"><b>Date:</b> <span id="dateLabel">Loading…</span></label>
+        <input id="dateSlider" type="range" min="0" max="0" value="0" step="1" />
+      </div>
+    </div>
+
+    <div id="vis"></div>
+    <div id="legend"></div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="js/script.js"></script>
+</body>
+<!-- 
+<body>
     <div class="container"> <!-- Centers content and sets max width -->
-        <h1>Daily Temperatures in the U.S.</h1>
+        <!-- <h1>Daily Temperatures in the U.S.</h1>
         <p>Brief intro to dataset.</p>
         <p>Rationale for design decisions.</p>
         <p>References to data sources</p>
-        <p>Overview of development process.</p>
-        <p>Summary of AI usage.</p>
-        <div id="vis"></div> <!--  Will hold our visualization (SVG) -->
-        <g id="legend"></g> <!--  Will hold our legend -->
-        <div class="controls">
+        <p>Overview of development process.</p> -->
+        <!-- <p>Summary of AI usage.</p> -->
+        <!-- <div id="vis"></div>  Will hold our visualization (SVG) -->
+        <!-- <g id="legend"></g>  Will hold our legend -->
+        <!-- <div class="controls">
             <button id="addPoint">Add Point</button>
             <button id="removePoint">Remove Point</button>
             <button id="updatePoints">Update Points</button>
         </div>
-    </div>
+    </div> -->
     
     <!-- Load D3.js -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="js/script.js"></script>
-</body>
+</body> -->
 </html>
