@@ -258,12 +258,9 @@ function updateVis(currDateIdx) {
           .duration(120)
           .attr("cx", (d) => projection([d.longitude, d.latitude])[0])
           .attr("cy", (d) => projection([d.longitude, d.latitude])[1])
-          .style("fill", (d) => colorScale(d.TAVG)),
+          .style("fill", d => d.TAVG == null ? "#cfcfcf" : window.globalColorScale(d.TAVG)),
       (exit) => exit.remove()
     );
-
-  // Legend (use percentile domain so it matches stronger contrast)
-  drawLegend(colorScale, lo, hi, "Average Temperature (°F) — (5th–95th percentile)");
 }
 
 // Slider event
@@ -351,6 +348,28 @@ Promise.all([
   );
 
   slider.attr("min", minIdx).attr("max", maxIdx).attr("value", minIdx);
+
+  // ---- STATIC legend + STATIC color scale (computed once) ----
+  const allTemps = weatherData
+    .map(d => d.TAVG)
+    .filter(v => v != null)
+    .sort(d3.ascending);
+
+  const globalLo = d3.quantile(allTemps, 0.05);
+  const globalHi = d3.quantile(allTemps, 0.95);
+
+  const globalColorScale = d3.scaleSequential()
+    .domain([globalHi, globalLo])   // flipped for hot=red, cold=blue
+    .clamp(true)
+    .interpolator(d3.interpolateRdYlBu);
+
+  // store them somewhere accessible to updateVis
+  window.globalColorScale = globalColorScale;
+  window.globalLo = globalLo;
+  window.globalHi = globalHi;
+
+  // draw the legend ONCE
+  drawLegend(globalColorScale, globalLo, globalHi, "Average Temperature (°F)");
 
   // Initial render
   updateVis(minIdx);
