@@ -14,8 +14,6 @@
   <div class="container">
     <h1>Daily Temperatures in the U.S.</h1>
 
-    <p>Brief intro to dataset.</p>
-
     <div class="controls">
       <div class="date-row">
         <label for="dateSlider"><b>Date:</b> <span id="dateLabel">Loading…</span></label>
@@ -29,6 +27,23 @@
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="js/script.js"></script>
+
+  <h1>Intro of Dataset</h1>
+   <p> This project visualizes daily weather patterns across the contiguous United States (excluding Alaska and Hawaii) in 2017 using station-based meteorological data from the “Daily Weather in the U.S., 2017” provided by the NOAA Daily Global Historical Climatology Network.
+    
+    <br><br>The dataset contains daily observations recorded at weather stations across the country, including station metadata (station name, state, latitude, and longitude) and weather variables, such as the average temperature (TAVG), minimum temperature (TMIN), maximum temperature (TMAX), precipitation (PRCP), snowfall (SNOW), and wind speed (AWND). For this visualization, we primarily focused on the average daily temperature (TAVG) as the main encoded variable because it provides a balanced summary of daily conditions while also being intuitive to interpret and visually display. When TAVG values were unavailable for a particular data point, but TMIN and TMAX were present, we approximated the average using the midpoint of these values to reduce missing data. 
+    
+    <br><br>The design of this visualization was guided by the geographic and temporal structure of the dataset. Because the data consists of weather observations recorded at specific physical locations, a projected map of the continental United States was chosen as the primary view to preserve spatial accuracy and allow users to recognize regional patterns immediately. Instead of plotting latitude and longitude on raw axes, we used the Albers USA projection to align stations with state boundaries, improving interpretability. Station location is encoded by position, while average temperature is encoded using a red–yellow–blue color scale, with cooler temperatures shown in blue and warmer temperatures in red. Color was selected as the primary encoding because it enables intuitive comparison across many spatial points without cluttering the map. A percentile-based domain was used to enhance contrast among common temperature values and reduce the influence of extreme outliers. To support interaction, a timeline slider provides dynamic filtering by date, allowing users to explore seasonal change across the year, while zoom and pan enable multi-scale spatial exploration. Details-on-demand are implemented through hover tooltips that reveal station name, location, and daily weather values, preserving a clean visual surface while still allowing deeper inspection. Hover tooltips let users see the station name, location, and daily weather values without cluttering the map, so the main view stays clean but still informative. We considered other options like a state-level choropleth map and a simple latitude–longitude scatterplot, but those either hid station-level detail or didn’t provide enough geographic context. Small-multiple monthly views were also explored, but they didn’t allow for the same smooth, interactive time exploration as the slider. Overall, the final design keeps the map clear and accurate while still making it easy and engaging to explore the data.
+    </p>
+
+    <h1>Development Process</h1>
+    Daniel wrote the code for preprocessing the dataset, plotting the points based on date location, and changing the color of the points based on the temperature. Lasya wrote the code for displaying the tooltips, drawing the map, and zooming and panning on the map. Carolyn set up the project, coordinated and planned tasks, deployed the website, formatted the write-up in HTML, and created the video. We spent about 6 hours developing the application. ChatGPT was used to assist with debugging, drawing the legend, and adjusting the map location and size in the SVG when zooming in and out.
+    
+    <h1>References</h1>
+    <ul>
+      <li>Esri. (n.d.). gz_2010_us_040_00_500k (FeatureServer) [Geographic data service]. ArcGIS REST Services Directory. Retrieved February 27, 2026, from https://services-nocdn.arcgis.com/V6ZHFr6zdgNZuVG0/ArcGIS/rest/services/gz_2010_us_040_00_500k/FeatureServer</li>
+    <li>National Oceanic and Atmospheric Administration. (2017). Daily weather in the U.S., 2017 (NOAA Daily Global Historical Climatology Network) [Data set]. National Oceanic and Atmospheric Administration.</li>
+  </p>
 </body>
 <!-- 
 <body>
